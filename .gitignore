@@ -31,7 +31,10 @@ lerna-debug.log*
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
-# !.vscode/launch.json
+!.vscode/launch.json
 !.vscode/extensions.json
 
-/config/config.local.ts
+/.env
+/prisma/migrations
+*.sqlite3
+*.sqlite3-journal
