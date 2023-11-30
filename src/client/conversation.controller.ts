@@ -16,6 +16,6 @@ export class ConversationController {
   async createConversation(
     @Body() dto: CreateConversationDTO,
   ): Promise<Conversation> {
-    return this.conversationService.createConversation(dto);
+    return this.conversationService.createConversation(dto.assistantId);
   }
 }

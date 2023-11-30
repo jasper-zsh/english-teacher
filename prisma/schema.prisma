@@ -10,9 +10,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Assistant {
+  id Int @default(autoincrement()) @id
+  provider String
+  name String
+  prompt String
+  metadata String?
+  conversations Conversation[]
+}
+
 model Conversation {
   id Int @default(autoincrement()) @id
+  provider String
   name String?
-  assistantId String
-  threadId String
+  assistantId Int
+  assistant Assistant @relation(fields: [assistantId], references: [id])
+  metadata String?
+}
+
+model Message {
+  id Int @default(autoincrement()) @id
+  conversationId Int
+  role String
+  text String
 }

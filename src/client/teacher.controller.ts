@@ -1,13 +1,14 @@
-import { AIService } from '@/ai/ai.service';
-import { TeacherDTO } from '@/ai/dto/teacher.dto';
+import { AIInterface } from '@/ai/ai.interface';
 import { Controller, Get } from '@nestjs/common';
+import { Assistant } from '@prisma/client';
 
 @Controller('teachers')
 export class TeacherController {
-  constructor(private aiService: AIService) {}
+  constructor(private ai: AIInterface) {}
 
   @Get()
-  async listTeachers(): Promise<TeacherDTO[]> {
-    return this.aiService.listTeachers();
+  async listTeachers(): Promise<Assistant[]> {
+    const assistants = await this.ai.listAssistants();
+    return assistants;
   }
 }

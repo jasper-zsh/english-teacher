@@ -1,3 +1,3 @@
 export class CreateConversationDTO {
-  public assistantId: string;
+  public assistantId: number;
 }
