@@ -1,8 +1,15 @@
-import { Assistant } from 'openai/resources/beta/assistants/assistants';
+import { Assistant } from '@prisma/client';
 
 export class AssistantDTO {
-  public assistantId: string;
+  public id: number;
   public name: string;
+
+  public static newFromDB(assistant: Assistant): AssistantDTO {
+    const dto = new AssistantDTO();
+    dto.id = assistant.id;
+    dto.name = assistant.name;
+    return dto;
+  }
 }
 
 export class CreateAssistantDTO {

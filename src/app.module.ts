@@ -8,7 +8,11 @@ import { AdminModule } from './admin/admin.module';
 
 @Global()
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), ClientModule, AdminModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ClientModule,
+    AdminModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
   exports: [PrismaService],

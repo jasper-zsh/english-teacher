@@ -3,11 +3,11 @@ import { ConversationGateway } from './conversation.gateway';
 import { ConversationController } from './conversation.controller';
 import { ConversationService } from './conversation.service';
 import { AIModule } from '@/ai/ai.module';
-import { TeacherController } from './teacher.controller';
+import { AssistantController } from './assistant.controller';
 
 @Module({
   imports: [AIModule],
-  controllers: [ConversationController, TeacherController],
+  controllers: [ConversationController, AssistantController],
   providers: [ConversationGateway, ConversationService],
 })
 export class ClientModule {}

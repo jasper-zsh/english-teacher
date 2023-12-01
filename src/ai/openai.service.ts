@@ -9,62 +9,62 @@ import { ThreadMessage } from 'openai/resources/beta/threads/messages/messages';
 import { Page } from '@/common/dto/page.dto';
 import Config from '@/config';
 import { AIInterface, Direction } from './ai.interface';
-import { newAssistantFromAPI, newMessageFromAPI } from './openai.helper';
+import { newMessageFromAPI } from './openai.helper';
 import { Assistant, Conversation } from '@prisma/client';
 import { PrismaService } from '@/prisma.service';
 import { MessageDTO } from './dto/message.dto';
 import { CreateAssistantDTO } from './dto/assistant.dto';
 
 @Injectable()
-export class OpenAIService extends AIInterface {
-  createAssistant(dto: CreateAssistantDTO): Promise<{ id: number; provider: string; name: string; prompt: string; metadata: string; }> {
+export class OpenAIService {
+  createAssistant(dto: CreateAssistantDTO): Promise<Assistant> {
     throw new Error('Method not implemented.');
   }
   private readonly openai: OpenAI;
 
   constructor(private prisma: PrismaService) {
-    super()
+    // super();
     this.openai = new OpenAI({
       apiKey: Config.OPENAI_API_KEY,
     });
   }
 
   providerName(): string {
-    return "openai"
+    return 'openai';
   }
 
   async listAssistants(): Promise<Assistant[]> {
     const res = await this.openai.beta.assistants.list();
     const remote = new Map<string, RemoteAssistant>();
-    for (let a of res.data) {
-      remote.set(a.id, a)
+    for (const a of res.data) {
+      remote.set(a.id, a);
     }
     const persisted = await this.prisma.assistant.findMany({
       where: {
         provider: {
           equals: this.providerName(),
-        }
-      }
+        },
+      },
     });
     const local = new Map<string, Assistant>();
-    for (let a of persisted) {
-      const meta = JSON.parse(a.metadata)
-      local.set(meta.assistant_id, a)
+    for (const a of persisted) {
+      const meta = JSON.parse(a.metadata);
+      local.set(meta.assistant_id, a);
     }
-    const r = new Array<Assistant>()
-    for (let e of local.entries()) {
+    const r = new Array<Assistant>();
+    for (const e of local.entries()) {
       if (!remote.has(e[0])) {
         await this.prisma.assistant.delete({
           where: {
             id: e[1].id,
-          }
-        })
-        local.delete(e[0])
+          },
+        });
+        local.delete(e[0]);
       } else {
-        r.push(e[1])
+        r.push(e[1]);
       }
     }
-    for (let e of remote.entries()) {
+    for (const e of remote.entries()) {
       if (!local.has(e[0])) {
         const a = await this.prisma.assistant.create({
           data: {
@@ -74,7 +74,7 @@ export class OpenAIService extends AIInterface {
             metadata: JSON.stringify({
               assistant_id: e[1].id,
             }),
-          }
+          },
         });
         r.push(a);
       }
@@ -90,13 +90,16 @@ export class OpenAIService extends AIInterface {
         assistantId: assistant.id,
         metadata: JSON.stringify({
           thread_id: thread.id,
-        })
-      }
+        }),
+      },
     });
     return conv;
   }
 
-  async addTextMessageAndRun(conversation: Conversation, message: string): Promise<void> {
+  async addTextMessageAndRun(
+    conversation: Conversation,
+    message: string,
+  ): Promise<void> {
     const cMeta = JSON.parse(conversation.metadata);
     const assistant = await this.prisma.assistant.findFirstOrThrow({
       where: {
@@ -114,7 +117,12 @@ export class OpenAIService extends AIInterface {
     await this.waitForResponse(run);
   }
 
-  async listMessages(conversation: Conversation, direction: Direction, limit: number, cursor?: string): Promise<Page<MessageDTO>> {
+  async listMessages(
+    conversation: Conversation,
+    direction: Direction,
+    limit: number,
+    cursor?: string,
+  ): Promise<Page<MessageDTO>> {
     const cMeta = JSON.parse(conversation.metadata);
     const res = await this.openai.beta.threads.messages.list(cMeta.thread_id, {
       order: direction === Direction.FORWARD ? 'asc' : 'desc',
@@ -124,48 +132,60 @@ export class OpenAIService extends AIInterface {
     });
     const page = new Page<MessageDTO>();
     page.hasMore = res.hasNextPage();
-    page.data = res.data.map(newMessageFromAPI)
+    page.data = res.data.map(newMessageFromAPI);
     if (res.data.length > 0) {
-      page.cursor = direction === Direction.FORWARD ? res.data[res.data.length - 1].id : res.data[0].id;
+      page.cursor =
+        direction === Direction.FORWARD
+          ? res.data[res.data.length - 1].id
+          : res.data[0].id;
     }
     return page;
   }
 
-  async listMessageAfter(threadId: string, lastMessageId?: string): Promise<Page<ThreadMessage>> {
+  async listMessageAfter(
+    threadId: string,
+    lastMessageId?: string,
+  ): Promise<Page<ThreadMessage>> {
     const res = await this.openai.beta.threads.messages.list(threadId, {
       after: lastMessageId,
-    })
+    });
     const page = new Page<ThreadMessage>();
     page.data = res.data;
     page.hasMore = res.hasNextPage();
-    page.cursor = res.data.length > 0 ? res.data[res.data.length - 1].id : null
+    page.cursor = res.data.length > 0 ? res.data[res.data.length - 1].id : null;
     return page;
   }
 
-  async listMessageBefore(threadId: string, firstMessageId?: string): Promise<Page<ThreadMessage>> {
+  async listMessageBefore(
+    threadId: string,
+    firstMessageId?: string,
+  ): Promise<Page<ThreadMessage>> {
     const res = await this.openai.beta.threads.messages.list(threadId, {
       before: firstMessageId,
     });
     const page = new Page<ThreadMessage>();
     page.data = res.data;
     page.hasMore = res.hasNextPage();
-    page.cursor = res.data.length > 0 ? res.data[0].id : null
+    page.cursor = res.data.length > 0 ? res.data[0].id : null;
     return page;
   }
 
   async waitForResponse(run: Run): Promise<void> {
     for (;;) {
-      const res = await this.openai.beta.threads.runs.retrieve(run.thread_id, run.id)
+      const res = await this.openai.beta.threads.runs.retrieve(
+        run.thread_id,
+        run.id,
+      );
       if (['queued', 'in_progress', 'cancelling'].indexOf(res.status) < 0) {
-        continue
+        continue;
       }
       switch (res.status) {
         case 'completed':
           return;
         case 'failed':
-          throw new Error(res.last_error.message)
+          throw new Error(res.last_error.message);
         default:
-          throw new Error(`Unhandled run status: ${res.status}`)
+          throw new Error(`Unhandled run status: ${res.status}`);
       }
     }
   }

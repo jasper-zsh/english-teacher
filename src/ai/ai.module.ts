@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { OpenAIService } from './openai.service';
 import { AIInterface } from './ai.interface';
 import { LlamaService } from './llama.service';
 

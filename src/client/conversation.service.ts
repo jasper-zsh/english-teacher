@@ -18,9 +18,9 @@ export class ConversationService {
     const assistant = await this.prisma.assistant.findFirstOrThrow({
       where: {
         id: assistantId,
-      }
-    })
-    const conversation = await this.ai.createConversation(assistant)
+      },
+    });
+    const conversation = await this.ai.createConversation(assistant);
     return conversation;
   }
 }
