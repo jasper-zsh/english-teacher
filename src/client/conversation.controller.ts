@@ -1,21 +1,34 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ConversationService } from './conversation.service';
 import { Conversation } from '@prisma/client';
-import { CreateConversationDTO } from './dto/create_conversation.dto';
+import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 
+@UseGuards(AuthenticatedGuard)
 @Controller('conversations')
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
   @Get()
-  async listConversations(): Promise<Conversation[]> {
-    return this.conversationService.listConversations();
+  async listConversations(@Request() req): Promise<Conversation[]> {
+    return await this.conversationService.listConversations(req.user);
   }
 
   @Post()
-  async createConversation(
-    @Body() dto: CreateConversationDTO,
-  ): Promise<Conversation> {
-    return this.conversationService.createConversation(dto.assistantId);
+  async createConversation(@Request() req): Promise<Conversation> {
+    return await this.conversationService.createConversation(req.user);
+  }
+
+  @Delete(':id')
+  async deleteConversation(@Request() req, @Param('id') id: string) {
+    await this.conversationService.deleteConversation(req.user, id);
+    return {};
   }
 }

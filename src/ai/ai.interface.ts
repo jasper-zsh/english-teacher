@@ -1,8 +1,7 @@
-import { Assistant, Conversation } from '@prisma/client';
+import { Conversation, Message } from '@prisma/client';
 import { MessageDTO } from './dto/message.dto';
 import { Page } from '@/common/dto/page.dto';
-import { CreateAssistantDTO } from './dto/assistant.dto';
-import { Observable } from 'rxjs';
+import { ChatbotInterface } from './chatbot.interface';
 
 export enum Direction {
   FORWARD = 'FORWARD',
@@ -11,17 +10,15 @@ export enum Direction {
 
 export abstract class AIInterface {
   abstract providerName(): string;
-  abstract createAssistant(dto: CreateAssistantDTO): Promise<Assistant>;
-  abstract listAssistants(): Promise<Assistant[]>;
-  abstract createConversation(assistant: Assistant): Promise<Conversation>;
-  abstract addTextMessageAndRun(
+  abstract chatText(
     conversation: Conversation,
-    message: string,
-  ): Promise<Observable<MessageDTO>>;
+    bot: ChatbotInterface,
+    message: Message,
+  ): Promise<Message>;
   abstract listMessages(
     conversation: Conversation,
     direction: Direction,
     limit: number,
-    cursor?: string,
+    cursor?: Date,
   ): Promise<Page<MessageDTO>>;
 }

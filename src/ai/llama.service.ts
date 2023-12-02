@@ -1,13 +1,11 @@
 import { Page } from '@/common/dto/page.dto';
 import { AIInterface, Direction } from './ai.interface';
-import { MessageDTO } from './dto/message.dto';
 import { Injectable } from '@nestjs/common';
-import { CreateAssistantDTO } from './dto/assistant.dto';
 import { PrismaService } from '@/prisma.service';
-import { Assistant, Conversation, Message } from '@prisma/client';
+import { Conversation, Message } from '@prisma/client';
 import OpenAI from 'openai';
 import Config from '@/config';
-import { Observable, concatWith, expand, from, map } from 'rxjs';
+import { ChatbotInterface } from './chatbot.interface';
 
 @Injectable()
 export class LlamaService extends AIInterface {
@@ -25,118 +23,54 @@ export class LlamaService extends AIInterface {
     return 'llama';
   }
 
-  async createAssistant(dto: CreateAssistantDTO): Promise<Assistant> {
-    return await this.prisma.assistant.create({
-      data: {
-        provider: this.providerName(),
-        name: dto.name,
-        prompt: dto.prompt,
-      },
-    });
-  }
-  async listAssistants(): Promise<Assistant[]> {
-    return await this.prisma.assistant.findMany({
-      where: {
-        provider: {
-          equals: this.providerName(),
-        },
-      },
-    });
-  }
-  async createConversation(assistant: Assistant): Promise<Conversation> {
-    return await this.prisma.conversation.create({
-      data: {
-        provider: this.providerName(),
-        assistantId: assistant.id,
-      },
-    });
-  }
-  async addTextMessageAndRun(
+  async chatText(
     conversation: Conversation,
-    message: string,
-  ): Promise<Observable<MessageDTO>> {
-    return from(
-      this.prisma.message.create({
-        data: {
-          conversationId: conversation.id,
+    bot: ChatbotInterface,
+    message: Message,
+  ): Promise<Message> {
+    const res = await this.client.chat.completions.create({
+      model: 'llama-70b-chat',
+      messages: [
+        ...(await bot.buildContext(conversation)),
+        {
           role: 'user',
-          text: message,
+          content: message.text,
         },
-      }),
-    )
-      .pipe(
-        concatWith(
-          from(
-            (async () => {
-              const msgs = await this.prisma.message.findMany({
-                where: {
-                  conversationId: conversation.id,
-                },
-              });
-              const assistant = await this.prisma.assistant.findFirstOrThrow({
-                where: {
-                  id: conversation.assistantId,
-                },
-              });
-              const contents = [
-                {
-                  role: 'system',
-                  content: assistant.prompt,
-                },
-                ...msgs.map((m) => ({
-                  role: m.role,
-                  content: m.text,
-                })),
-              ];
-              const res = await this.client.chat.completions.create({
-                model: 'llama-70b-chat',
-                // @ts-ignore
-                messages: contents,
-              });
-              return await this.prisma.message.create({
-                data: {
-                  conversationId: conversation.id,
-                  role: res.choices[0].message.role,
-                  text: res.choices[0].message.content,
-                },
-              });
-            })(),
-          ),
-        ),
-      )
-      .pipe(map(MessageDTO.newFromDB));
+      ],
+    });
+    return await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: res.choices[0].message.role,
+        text: res.choices[0].message.content,
+      },
+    });
   }
   async listMessages(
     conversation: Conversation,
     direction: Direction,
     limit: number,
-    cursor?: string,
-  ): Promise<Page<MessageDTO>> {
+    cursor?: Date,
+  ): Promise<Page<Message>> {
     const msgs = await this.prisma.message.findMany({
       where: {
         conversationId: conversation.id,
-        id: cursor
+        createdAt: cursor
           ? {
-              gt: direction === Direction.FORWARD ? Number(cursor) : undefined,
-              lt: direction === Direction.BACKWARD ? Number(cursor) : undefined,
+              gt: direction === Direction.FORWARD ? cursor : undefined,
+              lt: direction === Direction.BACKWARD ? cursor : undefined,
             }
           : undefined,
       },
       orderBy: [
         {
-          id: direction === Direction.FORWARD ? 'asc' : 'desc',
+          createdAt: direction === Direction.FORWARD ? 'asc' : 'desc',
         },
       ],
       take: limit,
     });
-    const r = new Page<MessageDTO>();
-    r.data = msgs.map((m) => {
-      const dto = new MessageDTO();
-      dto.id = m.id.toString();
-      dto.role = m.role;
-      dto.text = m.text;
-      return dto;
-    });
+    const r = new Page<Message>();
+    r.data = msgs;
     r.hasMore = false;
     if (msgs.length === 0) {
       return r;
@@ -148,13 +82,13 @@ export class LlamaService extends AIInterface {
         },
         orderBy: [
           {
-            id: 'asc',
+            createdAt: 'asc',
           },
         ],
       });
       if (msgs[msgs.length - 1].id != last.id) {
         r.hasMore = true;
-        r.cursor = msgs[msgs.length - 1].id.toString();
+        r.cursor = msgs[msgs.length - 1].createdAt.toISOString();
       }
     } else {
       const first = await this.prisma.message.findFirst({
@@ -163,13 +97,13 @@ export class LlamaService extends AIInterface {
         },
         orderBy: [
           {
-            id: 'desc',
+            createdAt: 'desc',
           },
         ],
       });
       if (msgs[msgs.length - 1].id !== first.id) {
         r.hasMore = true;
-        r.cursor = msgs[msgs.length - 1].id.toString();
+        r.cursor = msgs[msgs.length - 1].createdAt.toISOString();
       }
     }
     return r;

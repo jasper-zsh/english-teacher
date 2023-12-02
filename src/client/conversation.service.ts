@@ -1,6 +1,6 @@
 import { PrismaService } from '@/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { Conversation } from '@prisma/client';
+import { Conversation, User } from '@prisma/client';
 import { AIInterface } from '@/ai/ai.interface';
 
 @Injectable()
@@ -10,17 +10,44 @@ export class ConversationService {
     private ai: AIInterface,
   ) {}
 
-  async listConversations(): Promise<Conversation[]> {
-    return this.prisma.conversation.findMany();
-  }
-
-  async createConversation(assistantId: number): Promise<Conversation> {
-    const assistant = await this.prisma.assistant.findFirstOrThrow({
+  async listConversations(user: User): Promise<Conversation[]> {
+    return this.prisma.conversation.findMany({
       where: {
-        id: assistantId,
+        userId: user.id,
+        deletedAt: null,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        messages: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
       },
     });
-    const conversation = await this.ai.createConversation(assistant);
+  }
+
+  async createConversation(user: User): Promise<Conversation> {
+    const conversation = await this.prisma.conversation.create({
+      data: {
+        userId: user.id,
+      },
+    });
     return conversation;
+  }
+
+  async deleteConversation(user: User, id: string) {
+    await this.prisma.conversation.update({
+      where: {
+        userId: user.id,
+        id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
   }
 }

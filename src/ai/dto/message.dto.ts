@@ -11,3 +11,8 @@ export class MessageDTO {
     return dto;
   }
 }
+
+export interface ContextMessage {
+  role: 'user' | 'system' | 'assistant';
+  content: string;
+}

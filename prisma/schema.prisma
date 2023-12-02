@@ -10,27 +10,73 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Assistant {
-  id Int @default(autoincrement()) @id
-  provider String
-  name String
-  prompt String
-  metadata String?
-  conversations Conversation[]
-}
-
 model Conversation {
-  id Int @default(autoincrement()) @id
-  provider String
-  name String?
-  assistantId Int
-  assistant Assistant @relation(fields: [assistantId], references: [id])
-  metadata String?
+  id String @default(uuid()) @id
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  messages Message[]
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
 }
 
 model Message {
-  id Int @default(autoincrement()) @id
-  conversationId Int
+  id String @default(uuid()) @id
+  conversationId String
+  conversation Conversation @relation(fields: [conversationId], references: [id])
   role String
   text String
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id String @id @default(uuid())
+  credentials Credential[]
+  conversations Conversation[]
+  thirdParties ThirdParty[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Credential {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  type String
+  data String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, data])
+  @@index([userId, type])
+}
+
+model ThirdParty {
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  provider String
+  thirdPartyId String
+  credentials String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, provider])
+  @@unique([provider, thirdPartyId])
+}
+
+model VerificationCode {
+  id String @id @default(uuid())
+  bizType String
+  code String
+  data String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([bizType, code])
+}
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String
+  expiresAt   DateTime
 }
