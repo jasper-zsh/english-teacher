@@ -14,8 +14,9 @@ export class LlamaService extends AIInterface {
   constructor(private prisma: PrismaService) {
     super();
     this.client = new OpenAI({
-      apiKey: Config.LLAMA_API_TOKEN,
-      baseURL: 'https://api.llama-api.com',
+      // apiKey: Config.LLAMA_API_TOKEN,
+      // baseURL: 'https://api.llama-api.com',
+      apiKey: Config.OPENAI_API_KEY,
     });
   }
 
@@ -29,7 +30,8 @@ export class LlamaService extends AIInterface {
     message: Message,
   ): Promise<Message> {
     const res = await this.client.chat.completions.create({
-      model: 'llama-70b-chat',
+      // model: 'llama-70b-chat',
+      model: 'gpt-3.5-turbo',
       messages: [
         ...(await bot.buildContext(conversation)),
         {

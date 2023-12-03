@@ -46,8 +46,7 @@ model Credential {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([type, data])
-  @@index([userId, type])
+  @@unique([userId, type])
 }
 
 model ThirdParty {
@@ -79,4 +78,13 @@ model Session {
   sid       String   @unique
   data      String
   expiresAt   DateTime
+}
+
+model WordEntry {
+  id String @id @default(uuid())
+  source String
+  word String
+  definitions String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

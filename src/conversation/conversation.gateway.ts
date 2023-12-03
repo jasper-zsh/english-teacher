@@ -2,8 +2,7 @@ import { AIInterface, Direction } from '@/ai/ai.interface';
 import { TeacherChatbot } from '@/ai/teacher.chatbot';
 import { WsExceptionFilter } from '@/exception.filter';
 import { PrismaService } from '@/prisma.service';
-import { GoogleVoiceService } from '@/voice/google.service';
-import { Logger, UseFilters } from '@nestjs/common';
+import { Logger, UseFilters, UseInterceptors } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -26,12 +25,19 @@ import {
   of,
 } from 'rxjs';
 import * as pumpify from 'pumpify';
+import {
+  SpeechToTextInterface,
+  TextToSpeechInterface,
+  streamingSpeechToText,
+} from '@/voice/voice.interface';
+import { LogInterceptor } from '@/log.interceptor';
 
 export class ConversationContext {
   public readonly id: string;
   public readonly client: WebSocket;
   public conversation?: Conversation;
   public speechStream?: pumpify;
+  public speechBuffer?: Buffer;
   public speechResults: string[] = [];
 
   constructor(client: WebSocket) {
@@ -42,6 +48,7 @@ export class ConversationContext {
 
 @WebSocketGateway()
 @UseFilters(WsExceptionFilter)
+@UseInterceptors(LogInterceptor)
 export class ConversationGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
@@ -52,7 +59,8 @@ export class ConversationGateway
     private prisma: PrismaService,
     private ai: AIInterface,
     private teacher: TeacherChatbot,
-    private voice: GoogleVoiceService,
+    private textToSpeech: TextToSpeechInterface,
+    private speechToText: SpeechToTextInterface,
   ) {}
 
   handleConnection(client: WebSocket) {
@@ -169,7 +177,7 @@ export class ConversationGateway
   @SubscribeMessage('tts')
   async onTTS(@ConnectedSocket() client: any, @MessageBody() data: Message) {
     this.mustWithContext(client);
-    const voice = await this.voice.textToSpeech(data.text);
+    const voice = await this.textToSpeech.textToSpeech(data.text);
     await this.send(client, 'voice_response', {
       message: data,
       voice: voice.toString('base64'),
@@ -179,36 +187,55 @@ export class ConversationGateway
   @SubscribeMessage('speaking')
   onSpeaking(@ConnectedSocket() client: any) {
     const ctx = this.mustWithContext(client);
-    this.logger.log('Started a Speech To Text stream.');
-    ctx.speechStream = this.voice.streamingSpeechToText();
-    ctx.speechStream.on('data', (c) => {
-      const results = c.results.map((r) => r.alternatives[0].transcript);
-      console.log(results);
-      ctx.speechResults?.push(...results);
-    });
-    ctx.speechStream.on('end', () => {
-      this.logger.log('Speech To Text stream ended.');
-      this.chatText(client, ctx.speechResults.join(' '));
-      ctx.speechResults = [];
-      ctx.speechStream = undefined;
-    });
+    const streaming = streamingSpeechToText(this.speechToText);
+    if (streaming) {
+      this.logger.log('Started a Speech To Text stream.');
+      ctx.speechStream = streaming.streamingSpeechToText();
+      ctx.speechStream.on('data', (c) => {
+        const results = c.results.map((r) => r.alternatives[0].transcript);
+        console.log(results);
+        ctx.speechResults?.push(...results);
+      });
+      ctx.speechStream.on('end', () => {
+        this.logger.log('Speech To Text stream ended.');
+        this.chatText(client, ctx.speechResults.join(' '));
+        ctx.speechResults = [];
+        ctx.speechStream = undefined;
+      });
+    } else {
+      ctx.speechBuffer = Buffer.alloc(0);
+    }
   }
 
   @SubscribeMessage('audio_data')
   onAudioData(@ConnectedSocket() client: any, @MessageBody() data: string) {
     const ctx = this.mustWithContext(client);
-    if (ctx.speechStream) {
-      this.logger.log(`Got audio data in lenght ${data.length}`);
-      ctx.speechStream.write(Buffer.from(data, 'base64'));
+    const streaming = streamingSpeechToText(this.speechToText);
+    if (streaming) {
+      if (ctx.speechStream) {
+        this.logger.log(`Got audio data in lenght ${data.length}`);
+        ctx.speechStream.write(Buffer.from(data, 'base64'));
+      }
+    } else {
+      ctx.speechBuffer = Buffer.concat([
+        ctx.speechBuffer,
+        Buffer.from(data, 'base64'),
+      ]);
     }
   }
 
   @SubscribeMessage('speaking_end')
   async onSpeakingEnd(@ConnectedSocket() client: any) {
     const ctx = this.mustWithContext(client);
-    if (ctx.speechStream) {
-      ctx.speechStream.end();
-      ctx.speechStream = undefined;
+    const streaming = streamingSpeechToText(this.speechToText);
+    if (streaming) {
+      if (ctx.speechStream) {
+        ctx.speechStream.end();
+        ctx.speechStream = undefined;
+      }
+    } else {
+      const result = await this.speechToText.speechToText(ctx.speechBuffer);
+      this.chatText(client, result);
     }
   }
 

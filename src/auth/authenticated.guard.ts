@@ -8,10 +8,15 @@ import {
 @Injectable()
 export class AuthenticatedGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest();
-    if (!request.isAuthenticated()) {
-      throw new UnauthorizedException();
+    switch (context.getType()) {
+      case 'http':
+        const request = context.switchToHttp().getRequest();
+        if (!request.isAuthenticated()) {
+          throw new UnauthorizedException();
+        }
+        return true;
+      default:
+        return false;
     }
-    return true;
   }
 }

@@ -2,9 +2,19 @@ import { SpeechClient } from '@google-cloud/speech';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { Injectable } from '@nestjs/common';
 import * as pumpify from 'pumpify';
+import {
+  TextToSpeechInterface,
+  StreamingSpeechToTextInterface,
+  SpeechToTextInterface,
+} from './voice.interface';
 
 @Injectable()
-export class GoogleVoiceService {
+export class GoogleVoiceService
+  implements
+    StreamingSpeechToTextInterface,
+    SpeechToTextInterface,
+    TextToSpeechInterface
+{
   private ttsClient: TextToSpeechClient;
   private speechClient: SpeechClient;
 
@@ -12,6 +22,7 @@ export class GoogleVoiceService {
     this.ttsClient = new TextToSpeechClient();
     this.speechClient = new SpeechClient();
   }
+  type: 'streaming';
 
   async textToSpeech(text: string): Promise<Buffer> {
     const [res] = await this.ttsClient.synthesizeSpeech({

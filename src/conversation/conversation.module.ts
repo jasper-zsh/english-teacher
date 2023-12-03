@@ -10,4 +10,4 @@ import { VoiceModule } from '@/voice/voice.module';
   controllers: [ConversationController],
   providers: [ConversationGateway, ConversationService],
 })
-export class ClientModule {}
+export class ConversationModule {}

@@ -1,8 +1,30 @@
 import { PrismaService } from '@/prisma.service';
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { Credential, User } from '@prisma/client';
 import { CredentialType } from './auth.enum';
 import * as bcrypt from 'bcrypt';
+
+export type CredentialValidator = (
+  prisma: PrismaService,
+  type: string,
+  data: string,
+) => Promise<void>;
+
+const validators: Map<string, CredentialValidator> = new Map();
+validators.set(
+  CredentialType.USERNAME,
+  async (prisma: PrismaService, type: string, data: string) => {
+    const res = await prisma.credential.findFirst({
+      where: {
+        type,
+        data,
+      },
+    });
+    if (res) {
+      throw new ConflictException('User exists');
+    }
+  },
+);
 
 @Injectable()
 export class AuthService {
@@ -16,6 +38,10 @@ export class AuthService {
         data: {},
       });
       for (const c of credentials) {
+        const validator = validators.get(c.type);
+        if (validator) {
+          await validator(this.prisma, c.type, c.data);
+        }
         await tx.credential.create({
           data: {
             userId: user.id,
@@ -32,6 +58,10 @@ export class AuthService {
     type: string,
     data: string,
   ): Promise<Credential> {
+    const validator = validators.get(type);
+    if (validator) {
+      await validator(this.prisma, type, data);
+    }
     return await this.prisma.credential.create({
       data: {
         userId: user.id,
