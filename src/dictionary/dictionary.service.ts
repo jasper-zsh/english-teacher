@@ -10,6 +10,18 @@ export class DictionaryService {
     private http: HttpService,
   ) {}
 
+  async getWordEntry(id: string): Promise<WordEntryDTO> {
+    const entry = await this.prisma.wordEntry.findFirst({
+      where: {
+        id,
+      },
+    });
+    if (!entry) {
+      return null;
+    }
+    return WordEntryDTO.newFromDB(entry);
+  }
+
   async getWord(word: string): Promise<WordEntryDTO> {
     const entry = await this.prisma.wordEntry.findFirst({
       where: {

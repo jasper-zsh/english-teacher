@@ -33,6 +33,8 @@ model User {
   credentials Credential[]
   conversations Conversation[]
   thirdParties ThirdParty[]
+  studyLists StudyList[]
+  words WordInStudyList[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -85,6 +87,34 @@ model WordEntry {
   source String
   word String
   definitions String
+  studyLists WordInStudyList[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([source, word])
+}
+
+model StudyList {
+  id String @id @default(uuid())
+  userId String?
+  user User? @relation(fields: [userId], references: [id])
+  name String
+  words WordInStudyList[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WordInStudyList {
+  userId String?
+  user User? @relation(fields: [userId], references: [id])
+  studyListId String
+  studyList StudyList @relation(fields: [studyListId], references: [id])
+  wordEntrySource String
+  word String
+  wordEntry WordEntry @relation(fields: [wordEntrySource, word], references: [source, word])
+  createdAt DateTime @default(now())
+  updateAt DateTime @updatedAt
+
+  @@id([studyListId, wordEntrySource, word])
+  @@index([userId])
 }

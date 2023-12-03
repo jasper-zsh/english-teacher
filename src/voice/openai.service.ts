@@ -5,14 +5,13 @@ import {
   SpeechToTextInterface,
   TextToSpeechInterface,
 } from './voice.interface';
-import { Readable } from 'stream';
 import { Blob } from 'buffer';
 
 @Injectable()
 export class OpenAIVoiceService
   implements TextToSpeechInterface, SpeechToTextInterface
 {
-    private readonly logger = new Logger('OpenAIVoiceService');
+  private readonly logger = new Logger('OpenAIVoiceService');
   private readonly openai: OpenAI;
 
   constructor() {

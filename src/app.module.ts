@@ -12,7 +12,12 @@ import { DictionaryModule } from './dictionary/dictionary.module';
 
 @Global()
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), ConversationModule, AuthModule, DictionaryModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ConversationModule,
+    AuthModule,
+    DictionaryModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
   exports: [PrismaService],
